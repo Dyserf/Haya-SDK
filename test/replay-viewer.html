@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Haya Session Replay Viewer</title>
+  <link rel="stylesheet" href="./rrweb.style.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    header .badge {
+      background: #6366f1;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+
+    .controls {
+      padding: 20px 24px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      background: #13151f;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      color: #e2e8f0;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+
+    button {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #4f52cc; }
+    button:disabled { background: #374151; cursor: not-allowed; }
+
+    #status {
+      padding: 12px 24px;
+      font-size: 13px;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #status.error { color: #f87171; }
+    #status.info  { color: #94a3b8; }
+    #status.ok    { color: #34d399; }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #334155;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .spinner.active { display: inline-block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #player-wrap {
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* rrweb player container */
+    .rr-player {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    }
+
+    .meta-bar {
+      margin: 0 24px 16px;
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 16px;
+    }
+
+    .meta-bar.visible { display: grid; }
+
+    .meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .meta-item .val { font-size: 18px; font-weight: 700; color: #fff; }
+    .meta-item .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Haya Session Replay</h1>
+  <span class="badge">rrweb Player</span>
+</header>
+
+<div class="controls">
+  <div class="field">
+    <label>Cloudinary NDJSON URL</label>
+    <input id="url-input" type="text" placeholder="https://res.cloudinary.com/.../replay-xxx.ndjson" />
+  </div>
+  <button id="load-btn" onclick="loadReplay()">Load Replay</button>
+</div>
+
+<div id="status" class="info">
+  <span class="spinner" id="spinner"></span>
+  <span id="status-text">Paste a replay URL above and click Load Replay.</span>
+</div>
+
+<div class="meta-bar" id="meta-bar">
+  <div class="meta-item"><span class="val" id="meta-events">—</span><span class="lbl">Events</span></div>
+  <div class="meta-item"><span class="val" id="meta-duration">—</span><span class="lbl">Duration</span></div>
+  <div class="meta-item"><span class="val" id="meta-start">—</span><span class="lbl">Recorded At</span></div>
+</div>
+
+<div id="player-wrap"></div>
+
+<!-- rrweb UMD bundle served locally — avoids CDN content-type issues with .cjs files -->
+<script src="./rrweb.umd.js"></script>
+<script>
+  let replayer = null;
+
+  function setStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.className = type;
+    document.getElementById('status-text').textContent = msg;
+    document.getElementById('spinner').classList.toggle('active', type === 'loading');
+  }
+
+  async function loadReplay() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { setStatus('Please enter a Cloudinary NDJSON URL.', 'error'); return; }
+
+    document.getElementById('load-btn').disabled = true;
+    setStatus('Fetching replay data…', 'loading');
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+
+      if (lines.length === 0) throw new Error('Replay file is empty.');
+
+      const events = lines.map((line, i) => {
+        try { return JSON.parse(line); }
+        catch { throw new Error(`Invalid JSON on line ${i + 1}`); }
+      });
+
+      // Populate meta bar
+      const first = events[0];
+      const last  = events[events.length - 1];
+      const durationMs = last.timestamp - first.timestamp;
+      const durationSec = (durationMs / 1000).toFixed(1);
+
+      document.getElementById('meta-events').textContent   = events.length.toLocaleString();
+      document.getElementById('meta-duration').textContent = `${durationSec}s`;
+      document.getElementById('meta-start').textContent    = new Date(first.timestamp).toLocaleTimeString();
+      document.getElementById('meta-bar').classList.add('visible');
+
+      // Extract viewport from the full-snapshot event (type 2)
+      const snapshot = events.find(e => e.type === 2);
+      const viewportWidth  = snapshot?.data?.initialOffset?.width  || snapshot?.data?.width  || 1280;
+      const viewportHeight = snapshot?.data?.initialOffset?.height || snapshot?.data?.height || 800;
+
+      // Clear previous player
+      const wrap = document.getElementById('player-wrap');
+      wrap.innerHTML = '';
+      if (replayer) { try { replayer.destroy(); } catch(_) {} replayer = null; }
+
+      // Scale to fit the available width
+      const maxWidth = Math.min(window.innerWidth - 48, 1200);
+      const scale    = Math.min(1, maxWidth / viewportWidth);
+
+      // Outer container: sized to the VISIBLE (scaled) dimensions, clips overflow
+      wrap.style.width    = `${viewportWidth * scale}px`;
+      wrap.style.height   = `${viewportHeight * scale}px`;
+      wrap.style.overflow = 'hidden';
+      wrap.style.margin   = '0 auto';
+      wrap.style.position = 'relative';
+
+      // Inner container: full recorded size, scaled down via CSS transform.
+      // rrweb renders into this so the scale is applied before any rrweb DOM.
+      const inner = document.createElement('div');
+      inner.style.width           = `${viewportWidth}px`;
+      inner.style.height          = `${viewportHeight}px`;
+      inner.style.transformOrigin = 'top left';
+      inner.style.transform       = `scale(${scale})`;
+      wrap.appendChild(inner);
+
+      // Create rrweb Replayer inside the scaled inner container
+      replayer = new rrweb.Replayer(events, {
+        root: inner,
+        skipInactive: true,
+        showWarning: false,
+        showDebug: false,
+        blockClass: 'haya-block',
+        speed: 1,
+        width: viewportWidth,
+        height: viewportHeight,
+        triggerFocus: false,
+      });
+
+      replayer.play();
+      setStatus(`Loaded ${events.length} events (${durationSec}s of recording). Playing…`, 'ok');
+
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, 'error');
+    } finally {
+      document.getElementById('load-btn').disabled = false;
+    }
+  }
+
+  // Allow pressing Enter in the URL field
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadReplay();
+  });
+
+  // Pre-fill if URL hash contains a replay URL
+  const hash = decodeURIComponent(window.location.hash.slice(1));
+  if (hash.startsWith('http')) {
+    document.getElementById('url-input').value = hash;
+    loadReplay();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Haya SDK — Local Test Page</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 200vh; /* tall page to test scroll depth */
+    }
+
+    /* ── Top bar ── */
+    #config-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 12px 20px;
+      z-index: 1000;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    #config-bar label { font-size: 11px; color: #888; white-space: nowrap; }
+
+    #config-bar input {
+      background: #111;
+      border: 1px solid #333;
+      color: #e5e5e5;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      width: 260px;
+    }
+
+    #config-bar input:focus { outline: none; border-color: #4ade80; }
+
+    #init-btn {
+      background: #4ade80;
+      color: #000;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #init-btn:hover { background: #86efac; }
+    #init-btn:disabled { background: #166534; color: #4ade80; cursor: default; }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+    #status-dot.active { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+
+    /* ── Main layout ── */
+    .main {
+      margin-top: 70px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      min-height: calc(100vh - 70px);
+    }
+
+    /* ── Test page content ── */
+    .page-content {
+      padding: 40px;
+      border-right: 1px solid #2a2a2a;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid #2a2a4a;
+      border-radius: 16px;
+      padding: 60px 40px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .hero h1 { font-size: 2.5rem; font-weight: 800; color: #fff; margin-bottom: 16px; }
+    .hero p { color: #888; font-size: 1.1rem; margin-bottom: 32px; }
+
+    .btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    .btn {
+      padding: 12px 28px;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: #4ade80; color: #000; }
+    .btn-secondary { background: #1f2937; color: #e5e5e5; border: 1px solid #374151; }
+    .btn-danger { background: #ef4444; color: #fff; }
+
+    .section { margin-bottom: 40px; }
+    .section h2 { font-size: 1.3rem; color: #ccc; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #2a2a2a; }
+
+    .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s;
+    }
+    .card:hover { border-color: #4ade80; transform: translateY(-2px); }
+    .card h3 { font-size: 1rem; margin-bottom: 8px; }
+    .card p { font-size: 0.85rem; color: #666; }
+
+    .form-section {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 32px;
+    }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 13px; color: #888; margin-bottom: 8px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      color: #e5e5e5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .form-group input[type="password"] { letter-spacing: 3px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #4ade80; }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px 24px;
+      margin-bottom: 20px;
+    }
+    .nav-links a {
+      color: #4ade80;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .nav-links a:hover { text-decoration: underline; }
+
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .pricing-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+    }
+    .pricing-card.featured { border-color: #4ade80; }
+    .pricing-card .price { font-size: 2.5rem; font-weight: 800; color: #4ade80; margin: 12px 0; }
+    .pricing-card .price span { font-size: 1rem; color: #888; }
+    .pricing-card ul { list-style: none; text-align: left; margin: 16px 0; }
+    .pricing-card ul li { padding: 6px 0; font-size: 13px; color: #888; }
+    .pricing-card ul li::before { content: "✓ "; color: #4ade80; }
+
+    /* ── Live event feed ── */
+    #event-panel {
+      position: sticky;
+      top: 70px;
+      height: calc(100vh - 70px);
+      display: flex;
+      flex-direction: column;
+      background: #111;
+    }
+
+    #event-panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    #event-panel-header h3 { font-size: 14px; font-weight: 600; color: #ccc; }
+
+    #event-count {
+      background: #1f2937;
+      color: #4ade80;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    #clear-btn {
+      background: none;
+      border: 1px solid #333;
+      color: #666;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    #clear-btn:hover { border-color: #555; color: #999; }
+
+    #event-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .event-entry {
+      background: #1a1a1a;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .event-entry .event-type {
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .event-entry .event-url { color: #555; font-size: 10px; margin-bottom: 4px; }
+    .event-entry .event-payload { color: #888; font-family: monospace; word-break: break-all; }
+
+    .type-click .event-type { color: #f59e0b; }
+    .type-scroll .event-type { color: #3b82f6; }
+    .type-pageview .event-type { color: #4ade80; }
+    .type-form_interaction .event-type { color: #a78bfa; }
+    .type-mousemove .event-type { color: #06b6d4; }
+    .type-custom .event-type { color: #f97316; }
+
+    .flush-indicator {
+      text-align: center;
+      padding: 8px;
+      font-size: 10px;
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(74, 222, 128, 0.1);
+    }
+
+    #stats-bar {
+      padding: 12px 16px;
+      border-top: 1px solid #2a2a2a;
+      display: flex;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .stat { text-align: center; flex: 1; }
+    .stat .val { font-size: 18px; font-weight: 700; color: #4ade80; }
+    .stat .lbl { font-size: 10px; color: #555; margin-top: 2px; }
+
+    .hint {
+      padding: 20px;
+      text-align: center;
+      color: #444;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .scroll-spacer {
+      height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+      font-size: 14px;
+      border: 1px dashed #222;
+      border-radius: 12px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Config bar ── -->
+<div id="config-bar">
+  <span id="status-dot"></span>
+  <div>
+    <label>SDK Key (projectId)</label>
+    <input type="text" id="input-sdk-key" placeholder="Paste your sdkKey here" />
+  </div>
+  <div>
+    <label>Backend URL</label>
+    <input type="text" id="input-endpoint" value="http://localhost:3000/api/v1/analytics/events" style="width:320px" />
+  </div>
+  <button id="init-btn" onclick="initSDK()">▶ Start Tracking</button>
+</div>
+
+<!-- ── Main layout ── -->
+<div class="main">
+
+  <!-- ── Page content (things to click/scroll) ── -->
+  <div class="page-content">
+
+    <!-- Nav -->
+    <div class="nav-links">
+      <a href="#" onclick="simulatePage('/home')">Home</a>
+      <a href="#" onclick="simulatePage('/features')">Features</a>
+      <a href="#" onclick="simulatePage('/pricing')">Pricing</a>
+      <a href="#" onclick="simulatePage('/blog')">Blog</a>
+      <a href="#" onclick="simulatePage('/contact')">Contact</a>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1>Test Website</h1>
+      <p>Click things, scroll, fill the form — watch events appear in the live feed →</p>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="cta-btn">Get Started Free</button>
+        <button class="btn btn-secondary" id="demo-btn">Watch Demo</button>
+        <button class="btn btn-danger" id="cancel-btn">Cancel Plan</button>
+      </div>
+    </div>
+
+    <!-- Feature cards -->
+    <div class="section">
+      <h2>Features</h2>
+      <div class="card-grid">
+        <div class="card" id="card-heatmaps">
+          <h3>🔥 Heatmaps</h3>
+          <p>See exactly where users click, scroll, and move their mouse.</p>
+        </div>
+        <div class="card" id="card-replay">
+          <h3>🎬 Session Replay</h3>
+          <p>Watch real user sessions as if you were looking over their shoulder.</p>
+        </div>
+        <div class="card" id="card-ai">
+          <h3>🤖 AI Insights</h3>
+          <p>GPT-4o analyses every section and tells you what to fix.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="section">
+      <h2>Signup Form (test form tracking)</h2>
+      <div class="form-section">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="field-name" placeholder="John Doe" />
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="field-email" placeholder="john@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password (will be masked in replay)</label>
+          <input type="password" id="field-password" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>Plan</label>
+          <select id="field-plan">
+            <option>Starter — Free</option>
+            <option>Pro — $29/mo</option>
+            <option>Enterprise — Custom</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="signup-btn" style="width:100%">Create Account</button>
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div class="section">
+      <h2>Pricing</h2>
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div>Starter</div>
+          <div class="price">$0 <span>/mo</span></div>
+          <ul>
+            <li>5 free analyses</li>
+            <li>Basic heatmaps</li>
+            <li>1 project</li>
+          </ul>
+          <button class="btn btn-secondary" style="width:100%">Get Started</button>
+        </div>
+        <div class="pricing-card featured">
+          <div>Pro</div>
+          <div class="price">$29 <span>/mo</span></div>
+          <ul>
+            <li>Unlimited analyses</li>
+            <li>Session replay</li>
+            <li>10 projects</li>
+            <li>AI insights</li>
+          </ul>
+          <button class="btn btn-primary" id="pro-btn" style="width:100%">Start Free Trial</button>
+        </div>
+        <div class="pricing-card">
+          <div>Enterprise</div>
+          <div class="price">Custom</div>
+          <ul>
+            <li>Everything in Pro</li>
+            <li>SSO / SAML</li>
+            <li>Dedicated support</li>
+          </ul>
+          <button class="btn btn-secondary" style="width:100%">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom event trigger -->
+    <div class="section">
+      <h2>Custom Events</h2>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="fireCustom('upgrade_clicked', { plan: 'pro' })">Fire: upgrade_clicked</button>
+        <button class="btn btn-secondary" onclick="fireCustom('video_played', { title: 'demo' })">Fire: video_played</button>
+        <button class="btn btn-secondary" onclick="fireCustom('coupon_applied', { code: 'HAYA20' })">Fire: coupon_applied</button>
+        <button class="btn btn-secondary" onclick="manualFlush()">⚡ Force Flush Now</button>
+      </div>
+    </div>
+
+    <!-- Scroll spacer -->
+    <div class="scroll-spacer">
+      ↓ Keep scrolling to test scroll depth tracking ↓
+    </div>
+
+  </div>
+
+  <!-- ── Live event feed panel ── -->
+  <div id="event-panel">
+    <div id="event-panel-header">
+      <h3>Live Event Feed</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="event-count">0 events</span>
+        <button id="clear-btn" onclick="clearLog()">Clear</button>
+      </div>
+    </div>
+
+    <div id="event-log">
+      <div class="hint">
+        ① Paste your <strong>SDK Key</strong> above<br/><br/>
+        ② Click <strong>▶ Start Tracking</strong><br/><br/>
+        ③ Interact with the page — events will appear here in real time<br/><br/>
+        ④ Check your backend terminal to see the incoming batches
+      </div>
+    </div>
+
+    <div id="stats-bar">
+      <div class="stat"><div class="val" id="stat-clicks">0</div><div class="lbl">Clicks</div></div>
+      <div class="stat"><div class="val" id="stat-scrolls">0</div><div class="lbl">Scrolls</div></div>
+      <div class="stat"><div class="val" id="stat-pageviews">0</div><div class="lbl">Pageviews</div></div>
+      <div class="stat"><div class="val" id="stat-batches">0</div><div class="lbl">Batches sent</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Load the Haya SDK from the dist folder -->
+<script src="../dist/haya.min.js"></script>
+
+<script>
+  let totalEvents = 0;
+  let stats = { click: 0, scroll: 0, pageview: 0, batches: 0 };
+
+  // ── Intercept fetch to spy on outgoing batches ──
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async function(...args) {
+    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    if (url && url.includes('/analytics/events')) {
+      try {
+        const body = args[1]?.body;
+        if (body) {
+          const data = JSON.parse(body);
+          stats.batches++;
+          document.getElementById('stat-batches').textContent = stats.batches;
+          addFlushIndicator(data.events?.length || 0, !!data.snapshots);
+        }
+      } catch {}
+    }
+    return originalFetch(...args);
+  };
+
+  // ── Intercept sendBeacon to spy on page-unload flushes ──
+  const originalBeacon = navigator.sendBeacon.bind(navigator);
+  navigator.sendBeacon = function(url, data) {
+    if (url.includes('/analytics/events')) {
+      stats.batches++;
+      document.getElementById('stat-batches').textContent = stats.batches;
+    }
+    return originalBeacon(url, data);
+  };
+
+  function initSDK() {
+    const sdkKey = document.getElementById('input-sdk-key').value.trim();
+    const endpoint = document.getElementById('input-endpoint').value.trim();
+
+    if (!sdkKey) {
+      alert('Please enter your SDK Key first.');
+      return;
+    }
+
+    Haya.init(sdkKey, {
+      sessionReplay: true,
+      heatmaps: true,
+      autoTrack: { clicks: true, scrolls: true, pageviews: true },
+      trackMousemove: false,
+      maskInputs: true,
+      endpoint: endpoint,
+      flushInterval: 3000,
+      debug: true,
+    });
+
+    // Patch document event listeners to also show events in the UI
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#config-bar') || e.target.closest('#event-panel')) return;
+      addEventEntry('click', window.location.pathname, {
+        x: e.clientX, y: e.clientY,
+        target: e.target.tagName.toLowerCase() + (e.target.id ? `#${e.target.id}` : '')
+      });
+      stats.click++;
+      document.getElementById('stat-clicks').textContent = stats.click;
+    }, { passive: true });
+
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+      const now = Date.now();
+      if (now - lastScroll < 500) return;
+      lastScroll = now;
+      const depth = Math.round((window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100);
+      addEventEntry('scroll', window.location.pathname, { scrollDepth: depth + '%' });
+      stats.scroll++;
+      document.getElementById('stat-scrolls').textContent = stats.scroll;
+    }, { passive: true });
+
+    // Initial pageview
+    addEventEntry('pageview', window.location.pathname, { referrer: document.referrer || 'direct' });
+    stats.pageview++;
+    document.getElementById('stat-pageviews').textContent = stats.pageview;
+
+    // UI updates
+    document.getElementById('init-btn').textContent = '✓ Tracking Active';
+    document.getElementById('init-btn').disabled = true;
+    document.getElementById('status-dot').classList.add('active');
+
+    console.log('[Test] Haya SDK initialized successfully');
+  }
+
+  function simulatePage(path) {
+    // Simulates a SPA route change — the route tracker will fire a pageview
+    history.pushState({}, '', path);
+    addEventEntry('pageview', path, { url: window.location.href });
+    stats.pageview++;
+    document.getElementById('stat-pageviews').textContent = stats.pageview;
+  }
+
+  function fireCustom(name, props) {
+    if (!Haya) return alert('Initialize the SDK first.');
+    Haya.track(name, props);
+    addEventEntry('custom', window.location.pathname, { name, ...props });
+    totalEvents++;
+    updateCount();
+  }
+
+  function manualFlush() {
+    if (!Haya) return alert('Initialize the SDK first.');
+    Haya.flush();
+  }
+
+  function addEventEntry(type, url, payload) {
+    const log = document.getElementById('event-log');
+
+    // Remove hint on first event
+    const hint = log.querySelector('.hint');
+    if (hint) hint.remove();
+
+    const entry = document.createElement('div');
+    entry.className = `event-entry type-${type}`;
+    entry.innerHTML = `
+      <div class="event-type">${type}</div>
+      <div class="event-url">${url}</div>
+      <div class="event-payload">${JSON.stringify(payload)}</div>
+    `;
+
+    log.prepend(entry);
+    totalEvents++;
+    updateCount();
+
+    // Keep max 100 entries
+    const entries = log.querySelectorAll('.event-entry:not(.flush-entry)');
+    if (entries.length > 100) entries[entries.length - 1].remove();
+  }
+
+  function addFlushIndicator(eventCount, hasReplay) {
+    const log = document.getElementById('event-log');
+    const el = document.createElement('div');
+    el.className = 'event-entry flush-indicator';
+    el.innerHTML = `⚡ Batch flushed — ${eventCount} events${hasReplay ? ' + replay snapshot' : ''} → backend`;
+    log.prepend(el);
+  }
+
+  function updateCount() {
+    document.getElementById('event-count').textContent = `${totalEvents} events`;
+  }
+
+  function clearLog() {
+    document.getElementById('event-log').innerHTML = '';
+    totalEvents = 0;
+    updateCount();
+    stats = { click: 0, scroll: 0, pageview: 0, batches: stats.batches };
+    document.getElementById('stat-clicks').textContent = 0;
+    document.getElementById('stat-scrolls').textContent = 0;
+    document.getElementById('stat-pageviews').textContent = 0;
+  }
+</script>
+
+</body>
+</html>
