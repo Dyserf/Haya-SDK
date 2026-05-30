@@ -1,5 +1,5 @@
 {
-  "name": "@haya/analytics",
+  "name": "@tryhaya/analytics",
   "version": "1.0.0",
   "description": "Haya Analytics SDK — Heatmaps, Session Replay, and Event Tracking for your website",
   "author": "Haya",
@@ -49,6 +49,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/haya/haya-sdk"
+    "url": "git+https://github.com/haya/haya-sdk.git"
   }
 }
