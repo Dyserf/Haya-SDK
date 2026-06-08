@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG: HayaConfig = {
   flushInterval: 3000,
   flushSize: 50,
   debug: false,
-  replayMaxDuration: 40,
+  replayMaxDuration: 1200,
 };
 
 export const createState = (

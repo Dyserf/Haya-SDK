@@ -13,7 +13,7 @@ export interface HayaConfig {
   flushInterval: number;   // ms between batch flushes (default 3000)
   flushSize: number;       // flush when buffer hits this count (default 50)
   debug: boolean;
-  replayMaxDuration: number; // seconds, default 40
+  replayMaxDuration: number; // seconds, default 1200 (20 min hard cap)
 }
 
 export interface HayaState {

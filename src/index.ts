@@ -75,7 +75,12 @@ const init = (
 
   if (state.config.sessionReplay) {
     teardowns.push(
-      initReplayEngine(state, (snapshot) => buffer!.pushSnapshot(snapshot))
+      initReplayEngine(
+        state,
+        (snapshot) => buffer!.pushSnapshot(snapshot),
+        push,
+        (sync) => buffer!.flush(sync)
+      )
     );
   }
 

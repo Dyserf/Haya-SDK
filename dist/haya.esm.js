@@ -36,7 +36,7 @@ const DEFAULT_CONFIG = {
     flushInterval: 3000,
     flushSize: 50,
     debug: false,
-    replayMaxDuration: 40,
+    replayMaxDuration: 1200,
 };
 const createState = (projectId, userConfig) => {
     var _a;
@@ -12725,38 +12725,87 @@ var n;
   t2[t2.NotStarted = 0] = "NotStarted", t2[t2.Running = 1] = "Running", t2[t2.Stopped = 2] = "Stopped";
 }(n || (n = {}));
 
+const INACTIVITY_MS = 60 * 1000; // finalize after 1 min of no interaction
+const MIN_RECORD_MS = 90 * 1000; // discard sessions shorter than 1m 30s
 /**
- * Starts rrweb recording and pipes snapshots into the event buffer.
- * Automatically stops recording once the configured replayMaxDuration is reached.
+ * Starts rrweb recording and finalizes the session when the user goes idle.
+ *
+ * Finalization triggers (whichever fires first):
+ *   1. No mouse/click/scroll/keyboard activity for 1 minute
+ *   2. Hard cap (state.config.replayMaxDuration seconds, default 20 min)
+ *   3. Page close / pagehide
+ *
+ * Sessions shorter than MIN_RECORD_MS are silently dropped — no session_end
+ * event is pushed, so the backend discards the chunks.
  *
  * Recording is deferred until document.readyState === "complete" so that
  * external stylesheets (common in React/Vite apps) are fully loaded before
  * rrweb takes the initial FullSnapshot. Without this, sheet.cssRules is empty
  * for unloaded <link> tags and the replay renders with no styles.
  */
-const initReplayEngine = (state, pushSnapshot) => {
-    const maxMs = state.config.replayMaxDuration * 1000;
+const initReplayEngine = (state, pushSnapshot, pushEvent, flushNow) => {
+    const hardCapMs = state.config.replayMaxDuration * 1000;
     let stopped = false;
     let stopRecording;
+    let inactivityTimer = null;
+    let hardCapTimer = null;
+    let recordingStart = 0;
+    const clearTimers = () => {
+        if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = null;
+        }
+        if (hardCapTimer) {
+            clearTimeout(hardCapTimer);
+            hardCapTimer = null;
+        }
+    };
+    const finalize = (reason, sync = false) => {
+        if (stopped)
+            return;
+        stopped = true;
+        clearTimers();
+        stopRecording === null || stopRecording === void 0 ? void 0 : stopRecording();
+        const elapsed = Date.now() - recordingStart;
+        if (elapsed >= MIN_RECORD_MS) {
+            log(`Session replay ending (${reason}) — ${Math.round(elapsed / 1000)}s recorded`);
+            pushEvent({
+                type: "custom",
+                pageUrl: window.location.pathname,
+                timestamp: Date.now(),
+                payload: { action: "session_end", reason },
+            });
+            flushNow(sync);
+        }
+        else {
+            log(`Session replay dropped (${reason}) — too short (${Math.round(elapsed / 1000)}s < 90s)`);
+        }
+    };
+    const resetInactivityTimer = () => {
+        if (stopped)
+            return;
+        if (inactivityTimer)
+            clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => finalize("inactivity"), INACTIVITY_MS);
+    };
+    const onUserActivity = () => resetInactivityTimer();
+    const onTabVisible = () => resetInactivityTimer();
+    const onVisibilityChange = () => {
+        if (document.visibilityState === "visible")
+            onTabVisible();
+        // hidden: let the inactivity timer run — if user doesn't return within
+        // 1 min the timer fires naturally and finalizes the session
+    };
+    const ACTIVITY_EVENTS = ["mousemove", "mousedown", "click", "scroll", "keydown", "touchstart"];
     const startRecording = () => {
         if (stopped)
             return;
-        const startTime = Date.now();
-        log(`Session replay started (cap: ${state.config.replayMaxDuration}s)`);
+        recordingStart = Date.now();
+        log("Session replay started (inactivity-based, 20m max)");
         stopRecording = record({
             emit(event) {
                 if (stopped)
                     return;
-                // Enforce the duration cap on the client side.
-                // Stop and immediately restart so the next 40-second chunk begins.
-                // The new FullSnapshot triggers the backend to reset the session
-                // and store a fresh replay — the same session ID is reused.
-                if (Date.now() - startTime >= maxMs) {
-                    log("Replay cap reached — restarting for next chunk");
-                    stopRecording === null || stopRecording === void 0 ? void 0 : stopRecording();
-                    setTimeout(startRecording, 0);
-                    return;
-                }
                 pushSnapshot(event);
             },
             // Inline stylesheet content so replays don't need the original server.
@@ -12782,6 +12831,16 @@ const initReplayEngine = (state, pushSnapshot) => {
             },
             checkoutEveryNth: 200,
         });
+        // Hard cap — absolute maximum recording length
+        hardCapTimer = setTimeout(() => finalize("hard_cap"), hardCapMs);
+        // User activity listeners — each resets the inactivity countdown
+        ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, onUserActivity, { passive: true }));
+        // Tab visibility — returning to the tab resets the countdown
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        // Page close — finalize immediately with sendBeacon
+        window.addEventListener("pagehide", () => finalize("page_close", true), { once: true });
+        // Start the initial inactivity countdown
+        resetInactivityTimer();
     };
     // Wait for all external resources (CSS, fonts) to finish loading before
     // taking the initial FullSnapshot. React/Vite apps load CSS as <link> files;
@@ -12793,9 +12852,9 @@ const initReplayEngine = (state, pushSnapshot) => {
         window.addEventListener("load", startRecording, { once: true });
     }
     return () => {
-        stopped = true;
-        stopRecording === null || stopRecording === void 0 ? void 0 : stopRecording();
-        log("Session replay stopped");
+        ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, onUserActivity));
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+        finalize("sdk_reset");
     };
 };
 
@@ -12846,7 +12905,7 @@ const init = (projectId, userConfig = {}) => {
     teardowns.push(initFormTracker(state, push));
     // ── Session replay ─────────────────────────────────────────────────────
     if (state.config.sessionReplay) {
-        teardowns.push(initReplayEngine(state, (snapshot) => buffer.pushSnapshot(snapshot)));
+        teardowns.push(initReplayEngine(state, (snapshot) => buffer.pushSnapshot(snapshot), push, (sync) => buffer.flush(sync)));
     }
     // ── Fire initial pageview ──────────────────────────────────────────────
     if (state.config.autoTrack.pageviews) {

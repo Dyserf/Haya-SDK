@@ -4,19 +4,10 @@
   "description": "Haya Analytics SDK — Heatmaps, Session Replay, and Event Tracking for your website",
   "author": "Haya",
   "license": "MIT",
-  "type": "module",
   "main": "dist/haya.umd.js",
   "module": "dist/haya.esm.js",
   "browser": "dist/haya.esm.js",
   "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/haya.esm.js",
-      "require": "./dist/haya.umd.js",
-      "default": "./dist/haya.esm.js"
-    }
-  },
   "files": [
     "dist"
   ],

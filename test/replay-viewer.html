@@ -238,9 +238,9 @@
       wrap.innerHTML = '';
       if (replayer) { try { replayer.destroy(); } catch(_) {} replayer = null; }
 
-      // Scale to fit the available width
-      const maxWidth = Math.min(window.innerWidth - 48, 1200);
-      const scale    = Math.min(1, maxWidth / viewportWidth);
+      // Scale to fill the available width
+      const maxWidth = window.innerWidth - 48;
+      const scale    = maxWidth / viewportWidth;
 
       // Outer container: sized to the VISIBLE (scaled) dimensions, clips overflow
       wrap.style.width    = `${viewportWidth * scale}px`;
