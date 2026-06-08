@@ -1,6 +1,6 @@
 {
   "name": "@tryhaya/analytics",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Haya Analytics SDK — Heatmaps, Session Replay, and Event Tracking for your website",
   "author": "Haya",
   "license": "MIT",
