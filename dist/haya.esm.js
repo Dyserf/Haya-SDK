@@ -12822,12 +12822,23 @@ const initReplayEngine = (state, pushSnapshot, pushEvent, flushNow) => {
                 : {},
             // Block elements matching ignore selectors from appearing in replay
             blockSelector: state.config.ignoreSelectors.join(", ") || undefined,
-            // Sample mousemove for replay separately from heatmap tracking
+            // Reduce high-frequency events to cut file size.
+            // Mousemoves are also stripped server-side before Cloudinary upload.
             sampling: {
-                mousemove: 50,
+                mousemove: 200,
                 mouseInteraction: true,
-                scroll: 150,
+                scroll: 300,
                 input: "last",
+            },
+            // Strip non-essential DOM from the FullSnapshot — cuts initial snapshot size
+            slimDOMOptions: {
+                comment: true,
+                headFavicon: true,
+                headWhitespace: true,
+                headMetaSocial: true,
+                headMetaRobots: true,
+                headMetaHttpEquiv: true,
+                headMetaVerification: true,
             },
             checkoutEveryNth: 200,
         });
