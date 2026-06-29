@@ -61,6 +61,17 @@ export const initReplayEngine = (
       flushNow(sync);
     } else {
       log(`Session replay dropped (${reason}) — too short (${Math.round(elapsed / 1000)}s < 90s)`);
+      // Notify the backend to discard accumulated rrweb chunks immediately.
+      // Without this, orphan chunks sit until the cleanup worker runs (up to 2h)
+      // and the replay worker would discard them anyway (server-side guard),
+      // but this avoids unnecessary storage and processing delay.
+      pushEvent({
+        type: "custom",
+        pageUrl: window.location.pathname,
+        timestamp: Date.now(),
+        payload: { action: "session_discard", reason },
+      });
+      flushNow(sync);
     }
   };
 

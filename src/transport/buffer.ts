@@ -4,6 +4,11 @@ import { log, warn, error } from "../utils/logger";
 const OFFLINE_STORAGE_KEY = "haya_offline_queue";
 const OFFLINE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
 
+// Flush snapshots before they reach the backend's MAX_SNAPSHOTS_PER_BATCH cap.
+// rrweb's checkoutEveryNth (200) emits a fresh FullSnapshot after 200 incrementals,
+// which gets pushed into the same still-unflushed array — leave headroom for that.
+const SNAPSHOT_FLUSH_THRESHOLD = 150;
+
 interface OfflineEntry {
   batch: object;
   savedAt: number;
@@ -43,7 +48,7 @@ export class EventBuffer {
     // rrweb FullSnapshot (type 2) is the single most critical event — flush it
     // immediately so it isn't lost if the tab closes before the next interval,
     // and so the backend receives it before any incremental events arrive.
-    if ((snapshot as any)?.type === 2) {
+    if ((snapshot as any)?.type === 2 || this.snapshots.length >= SNAPSHOT_FLUSH_THRESHOLD) {
       this.flush();
     }
   }
