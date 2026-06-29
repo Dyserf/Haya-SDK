@@ -79,6 +79,10 @@
 
     const OFFLINE_STORAGE_KEY = "haya_offline_queue";
     const OFFLINE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
+    // Flush snapshots before they reach the backend's MAX_SNAPSHOTS_PER_BATCH cap.
+    // rrweb's checkoutEveryNth (200) emits a fresh FullSnapshot after 200 incrementals,
+    // which gets pushed into the same still-unflushed array — leave headroom for that.
+    const SNAPSHOT_FLUSH_THRESHOLD = 150;
     class EventBuffer {
         constructor(state) {
             this.events = [];
@@ -98,7 +102,7 @@
             // rrweb FullSnapshot (type 2) is the single most critical event — flush it
             // immediately so it isn't lost if the tab closes before the next interval,
             // and so the backend receives it before any incremental events arrive.
-            if ((snapshot === null || snapshot === void 0 ? void 0 : snapshot.type) === 2) {
+            if ((snapshot === null || snapshot === void 0 ? void 0 : snapshot.type) === 2 || this.snapshots.length >= SNAPSHOT_FLUSH_THRESHOLD) {
                 this.flush();
             }
         }
@@ -12785,6 +12789,17 @@
             }
             else {
                 log(`Session replay dropped (${reason}) — too short (${Math.round(elapsed / 1000)}s < 90s)`);
+                // Notify the backend to discard accumulated rrweb chunks immediately.
+                // Without this, orphan chunks sit until the cleanup worker runs (up to 2h)
+                // and the replay worker would discard them anyway (server-side guard),
+                // but this avoids unnecessary storage and processing delay.
+                pushEvent({
+                    type: "custom",
+                    pageUrl: window.location.pathname,
+                    timestamp: Date.now(),
+                    payload: { action: "session_discard", reason },
+                });
+                flushNow(sync);
             }
         };
         const resetInactivityTimer = () => {
